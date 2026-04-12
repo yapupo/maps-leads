@@ -1,0 +1,24 @@
+2026/04/07-19:56:34.088 39a8 Reusing MANIFEST C:\Users\TEPA\maps-leads\.wwebjs_auth\session-maps-leads\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/04/07-19:56:34.089 39a8 Recovering log #562
+2026/04/07-19:56:34.107 39a8 Reusing old log C:\Users\TEPA\maps-leads\.wwebjs_auth\session-maps-leads\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000562.log 
+2026/04/07-19:56:47.857 38b0 Level-0 table #573: started
+2026/04/07-19:56:47.894 38b0 Level-0 table #573: 1358720 bytes OK
+2026/04/07-19:56:47.899 38b0 Delete type=0 #562
+2026/04/07-19:56:48.041 39a8 Compacting 1@1 + 7@2 files
+2026/04/07-19:56:48.141 39a8 Generated table #574@1: 57805 keys, 2194562 bytes
+2026/04/07-19:56:48.257 39a8 Generated table #575@1: 84531 keys, 2253402 bytes
+2026/04/07-19:56:48.343 39a8 Generated table #576@1: 23268 keys, 2178499 bytes
+2026/04/07-19:56:48.395 39a8 Generated table #577@1: 2432 keys, 2155763 bytes
+2026/04/07-19:56:48.449 39a8 Generated table #578@1: 2717 keys, 2156155 bytes
+2026/04/07-19:56:48.545 39a8 Generated table #579@1: 24562 keys, 2246514 bytes
+2026/04/07-19:56:48.593 39a8 Generated table #580@1: 17403 keys, 1140033 bytes
+2026/04/07-19:56:48.593 39a8 Compacted 1@1 + 7@2 files => 14324928 bytes
+2026/04/07-19:56:48.597 39a8 compacted to: files[ 0 0 7 0 0 0 0 ]
+2026/04/07-19:56:48.597 39a8 Delete type=2 #564
+2026/04/07-19:56:48.597 39a8 Delete type=2 #565
+2026/04/07-19:56:48.597 39a8 Delete type=2 #566
+2026/04/07-19:56:48.598 39a8 Delete type=2 #567
+2026/04/07-19:56:48.598 39a8 Delete type=2 #568
+2026/04/07-19:56:48.598 39a8 Delete type=2 #569
+2026/04/07-19:56:48.598 39a8 Delete type=2 #570
+2026/04/07-19:56:48.598 39a8 Delete type=2 #573

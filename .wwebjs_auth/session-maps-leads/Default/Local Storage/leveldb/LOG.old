@@ -1,0 +1,6 @@
+2026/04/07-18:50:55.110 4310 Reusing MANIFEST C:\Users\TEPA\maps-leads\.wwebjs_auth\session-maps-leads\Default\Local Storage\leveldb/MANIFEST-000001
+2026/04/07-18:50:55.117 4310 Recovering log #4
+2026/04/07-18:50:55.120 4310 Reusing old log C:\Users\TEPA\maps-leads\.wwebjs_auth\session-maps-leads\Default\Local Storage\leveldb/000004.log 
+2026/04/07-18:56:45.072 36b4 Level-0 table #8: started
+2026/04/07-18:56:45.087 36b4 Level-0 table #8: 23505 bytes OK
+2026/04/07-18:56:45.107 36b4 Delete type=0 #4

@@ -1,0 +1,23 @@
+Atue como um Engenheiro Sênior de Automação de Dados e Web Scraping, especialista em Node.js, TypeScript e Playwright.
+
+O meu objetivo é refatorar o sistema de extração de leads do Google Maps do meu projeto ("maps-leads") para a arquitetura mais performática, estável e escalável possível, mantendo o CUSTO ZERO (sem usar chamadas de pagas de APIs externas como Google Places API).
+
+Por favor, reescreva completamente as classes `GoogleMapsScraper.ts` e `WebsiteEmailExtractor.ts` implementando os seguintes requisitos técnicos focados em performance extrema e resiliência:
+
+### REQUISITOS PARA O SCRAP DO GOOGLE MAPS (GoogleMapsScraper.ts):
+1. Otimização Brutal de Contexto: O Playwright consome muita memória ao abrir mapas. Implemente uma interceptação de rotas (`page.route('**/*', ... )`) para ABORTAR sumariamente o carregamento de imagens, folhas de estilo (CSS), fontes (fonts) e arquivos de mídia (media). Permita apenas scripts (JS) e requisições essenciais da API de renderização (XHR/Fetch/Document).
+2. Evitar Abertura de Abas Únicas Massivas: Atualmente o sistema coleta N links, e depois tenta abrir as páginas de detalhe. Continue abrindo as páginas num lote gerido, mas utilize `p-limit` (ou gerenciamento concorrência/Chunks asynchonous limitados, Ex: 3 abas ativas de detalhe simultâneas).
+3. Atualização de Seletores (DOM Resilience): Atualize os Localizadores para usar estratégias robustas do Playwright, como testes XPath parciais ou combinações `.getByRole()`, em vez de amarrar duramente a classes criptografadas do Google (ex: fuja de `.DUwDvf`, use filtragens por hierarquia de atributos ou Aria Labels).
+4. Tratamento anti-blocking e IP Rate-Limit: Introduza algoritmos de *Jitter* reais (delays aleatórios de variação natural) durante o *Scroll* da barra lateral de empresas para não disparar reCAPTCHAs e injetar user-agents dinâmicos realistas ou randomizados no contexto do Playwright.
+
+### REQUISITOS PARA A EXTRAÇÃO DE E-MAILS (WebsiteEmailExtractor.ts):
+1. Remoção do Playwright para E-mails: Usar navegadores gráficos headless para varrer sites comuns atrás de um regex de e-mail é um desperdício monstruoso de CPU. Substitua o motor de extração de e-mails para utilizar um cliente HTTP leve nativo do node (como `axios` ou chamadas `fetch` nativas) acoplado a um parser de DOM leve (como `cheerio`).
+2. Deep Crawling (Procura profunda mínima): Se o robô não encontrar o padrão `/mailto:/` ou um Regex de email na página "Home" (Root) da URL da empresa usando o Axios/Cheerio, ele deve buscar automaticamente tentar acessar e parsear rotas óbvias de contato de forma assíncrona (como `URL/contato`, `URL/contact`, `URL/sobre`, e `URL/about`) antes de desistir.
+3. Timeout Estrito de Rede: Como muitos pequenos lojistas possuem sites quebrados, certifique-se de configurar um timeout estrito de 5 a 8 segundos na requisição do e-mail para não engarrafar a pipeline das outras centenas de negócios.
+
+### INTERFACE EXISTENTE (Restrições do Contrato):
+As classes devem continuar obedecendo às interfaces atuais do meu Domínio:
+- `IScraper.ts` possui um `scrape(options: ScrapeOptions): Promise<Contact[]>`
+- `Contact` deve retornar: `id, businessName, phone, email, website, address, rating, category, messageSentWhatsapp, messageSentEmail, scrapedAt`.
+
+Responda apenas demonstrando os novos códigos completos (blocos de código) para `GoogleMapsScraper.ts` e `WebsiteEmailExtractor.ts`, fortemente comentados em português explicando as otimizações, e caso precise introduzir os pacotes (como axios/cheerio), indique no topo o comando bash para `npm install`. Concentre-se em gerar código tolerante a falhas (try-catch limpos para não explodir na primeira leitura nula).
