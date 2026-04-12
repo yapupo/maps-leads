@@ -1,0 +1,3 @@
+export function History() {
+  return <div className="text-text font-display font-bold text-2xl uppercase tracking-widest">Histórico</div>;
+}
