@@ -1,0 +1,25 @@
+# Environment & secrets
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Data files (sensitive)
+contacts.csv
+scrape-history.json
+automation.json
+
+# WhatsApp session (auth tokens)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
