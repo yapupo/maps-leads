@@ -6,7 +6,10 @@
   "scripts": {
     "start": "ts-node main.ts",
     "build": "tsc",
-    "postinstall": "npx playwright install firefox"
+    "postinstall": "npx playwright install firefox",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@types/cheerio": "^0.22.35",
@@ -32,7 +35,9 @@
     "@types/qrcode": "^1.5.5",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/uuid": "^9.0.7",
+    "@vitest/coverage-v8": "^4.1.4",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.4"
   }
 }
