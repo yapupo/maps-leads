@@ -113,10 +113,19 @@ apiRouter.post('/scrape', async (req, res) => {
   const { query, location, maxResults, extractEmails } = req.body;
   if (!query?.trim()) { res.status(400).json({ error: '"query" é obrigatório' }); return; }
 
+  const parsedMax = parseInt(maxResults);
+  if (isNaN(parsedMax) || parsedMax < 1 || parsedMax > 500) {
+    res.status(400).json({ error: '"maxResults" deve ser um número entre 1 e 500' }); return;
+  }
+
+  if (location !== undefined && typeof location !== 'string') {
+    res.status(400).json({ error: '"location" deve ser uma string' }); return;
+  }
+
   res.json({ started: true });
 
   runScrapeJob(
-    { query: query.trim(), location: location?.trim(), maxResults: parseInt(maxResults) || 20, extractEmails: Boolean(extractEmails) },
+    { query: query.trim(), location: location?.trim() || undefined, maxResults: parsedMax, extractEmails: Boolean(extractEmails) },
     bus
   );
 });
@@ -128,9 +137,17 @@ apiRouter.post('/send', async (req, res) => {
   const { channel, template, delayMs } = req.body;
   if (!channel || !template?.trim()) { res.status(400).json({ error: '"channel" e "template" são obrigatórios' }); return; }
 
+  const validChannels: Channel[] = ['whatsapp', 'email'];
+  if (!validChannels.includes(channel as Channel)) {
+    res.status(400).json({ error: `"channel" deve ser "whatsapp" ou "email"` }); return;
+  }
+
+  const parsedDelay = parseInt(delayMs);
+  const safeDelay = isNaN(parsedDelay) ? 3000 : Math.min(Math.max(parsedDelay, 500), 30000);
+
   res.json({ started: true });
 
-  runSendJob({ channel: channel as Channel, template: template.trim(), delayMs: parseInt(delayMs) || 3000 }, bus);
+  runSendJob({ channel: channel as Channel, template: template.trim(), delayMs: safeDelay }, bus);
 });
 
 // ─── Automation ───────────────────────────────────────────────────────────────
