@@ -5,6 +5,7 @@ import type { Response } from 'express';
 import { apiRouter, setEventBus } from './routes/api';
 import { AutomationRepository } from '../infra/storage/AutomationRepository';
 import { runAutomationJob } from './jobRunner';
+import { createAuthMiddleware } from './middleware/auth';
 
 export class EventBus {
   private clients = new Set<Response>();
@@ -48,6 +49,13 @@ export function createServer(port = 3000): Promise<void> {
   const bus = new EventBus();
 
   app.use(express.json());
+
+  const auth = createAuthMiddleware();
+  if (auth) {
+    app.use(auth);
+    console.log('  [AUTH] Proteção por senha ativada.');
+  }
+
   app.use(express.static(path.join(__dirname, 'public')));
 
   setEventBus(bus);
