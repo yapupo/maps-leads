@@ -26,6 +26,15 @@ export interface ScrapeParams {
   extractEmails: boolean;
 }
 
+const SCRAPE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 horas
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`[TIMEOUT] ${label} ultrapassou ${ms / 60000} min`)), ms);
+    promise.then((v) => { clearTimeout(timer); resolve(v); }, (e) => { clearTimeout(timer); reject(e); });
+  });
+}
+
 export async function runScrapeJob(params: ScrapeParams, bus: EventBus): Promise<string[]> {
   const session = ScrapeHistoryRepository.create({
     query: params.query,
@@ -34,33 +43,40 @@ export async function runScrapeJob(params: ScrapeParams, bus: EventBus): Promise
   });
 
   state.job = 'scraping';
+  console.log(`[SCRAPE] Iniciando: "${params.query}" | max=${params.maxResults} | emails=${params.extractEmails}`);
   bus.emit('job:start', { job: 'scrape', sessionId: session.id });
 
   try {
     const useCase = new ScrapeContactsUseCase(new GoogleMapsScraper(), repository);
 
-    const contacts = await useCase.execute({
-      query: params.query,
-      location: params.location,
-      maxResults: params.maxResults,
-      extractEmailsFromWebsite: params.extractEmails,
-      onProgress: (current, name) => {
-        bus.emit('scrape:progress', { current, max: params.maxResults, name });
-      },
-      onPhase: (phase, current, total) => {
-        bus.emit('scrape:phase', { phase, current, total });
-      },
-      onRetry: (businessName, field) => {
-        bus.emit('scrape:retry', { name: businessName, field });
-      },
-    });
+    const contacts = await withTimeout(
+      useCase.execute({
+        query: params.query,
+        location: params.location,
+        maxResults: params.maxResults,
+        extractEmailsFromWebsite: params.extractEmails,
+        onProgress: (current, name) => {
+          bus.emit('scrape:progress', { current, max: params.maxResults, name });
+        },
+        onPhase: (phase, current, total) => {
+          bus.emit('scrape:phase', { phase, current, total });
+        },
+        onRetry: (businessName, field) => {
+          bus.emit('scrape:retry', { name: businessName, field });
+        },
+      }),
+      SCRAPE_TIMEOUT_MS,
+      'runScrapeJob'
+    );
 
     const ids = contacts.map((c) => c.id);
+    console.log(`[SCRAPE] Concluído: ${contacts.length} contatos salvos (sessão ${session.id})`);
     ScrapeHistoryRepository.complete(session.id, ids);
     bus.emit('scrape:done', { count: contacts.length, sessionId: session.id });
     return ids;
   } catch (err) {
     const msg = String(err);
+    console.error(`[SCRAPE] Erro: ${msg}`);
     ScrapeHistoryRepository.fail(session.id, msg);
     bus.emit('job:error', { job: 'scrape', message: msg });
     return [];
@@ -80,6 +96,7 @@ export interface SendParams {
 
 export async function runSendJob(params: SendParams, bus: EventBus): Promise<void> {
   state.job = 'sending';
+  console.log(`[SEND] Iniciando envio via ${params.channel} | delay=${params.delayMs}ms`);
   bus.emit('job:start', { job: 'send', channel: params.channel });
 
   try {
@@ -94,14 +111,19 @@ export async function runSendJob(params: SendParams, bus: EventBus): Promise<voi
       onQR: (qr) => bus.emit('whatsapp:qr', { qr }),
       onReady: () => bus.emit('whatsapp:ready', {}),
       onProgress: (current, total, result) => {
+        if (!result.success) {
+          console.warn(`[SEND] Falha (${current}/${total}): ${result.error}`);
+        }
         bus.emit('send:progress', { current, total, success: result.success, error: result.error ?? null });
       },
     });
 
     const sent = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
+    console.log(`[SEND] Concluído: ${sent} enviados, ${failed} falhas`);
     bus.emit('send:done', { sent, failed });
   } catch (err) {
+    console.error(`[SEND] Erro: ${String(err)}`);
     bus.emit('job:error', { job: 'send', message: String(err) });
   } finally {
     state.job = 'idle';
