@@ -141,4 +141,8 @@ export const api = {
   status: {
     get: () => request<{ status: 'idle' | 'scraping' | 'sending' }>('/status'),
   },
+
+  tunnel: {
+    getUrl: () => request<{ url: string | null }>('/tunnel-url'),
+  },
 };

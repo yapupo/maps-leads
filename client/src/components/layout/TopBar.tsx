@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { useSSE } from '../../hooks/useSSE';
 import { cn } from '../../lib/utils';
 
 type JobStatus = 'idle' | 'scraping' | 'sending';
+type Theme = 'dark' | 'light';
 
 const STATUS_CONFIG: Record<JobStatus, { label: string; color: string; dot: string }> = {
   idle:     { label: 'Ocioso',    color: 'text-muted',  dot: 'bg-dim'   },
@@ -14,9 +15,11 @@ const STATUS_CONFIG: Record<JobStatus, { label: string; color: string; dot: stri
 interface TopBarProps {
   title: string;
   onMenuClick: () => void;
+  theme: Theme;
+  onThemeToggle: () => void;
 }
 
-export function TopBar({ title, onMenuClick }: TopBarProps) {
+export function TopBar({ title, onMenuClick, theme, onThemeToggle }: TopBarProps) {
   const { subscribe } = useSSE();
   const [status, setStatus] = useState<JobStatus>('idle');
   const [connected, setConnected] = useState(false);
@@ -35,7 +38,6 @@ export function TopBar({ title, onMenuClick }: TopBarProps) {
   return (
     <header className="h-12 border-b border-border bg-card/60 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-10 shrink-0">
       <div className="flex items-center gap-3">
-        {/* Hamburger — só aparece no mobile */}
         <button
           onClick={onMenuClick}
           className="md:hidden text-muted hover:text-text transition-colors p-1 -ml-1"
@@ -43,7 +45,6 @@ export function TopBar({ title, onMenuClick }: TopBarProps) {
         >
           <Menu size={20} />
         </button>
-
         <h1 className="font-display font-extrabold text-base uppercase tracking-widest text-text">
           {title}
         </h1>
@@ -59,6 +60,14 @@ export function TopBar({ title, onMenuClick }: TopBarProps) {
           <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', cfg.dot)} />
           <span className="hidden sm:inline">{cfg.label}</span>
         </div>
+
+        <button
+          onClick={onThemeToggle}
+          className="text-muted hover:text-text transition-colors p-1"
+          aria-label="Alternar tema"
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
       </div>
     </header>
   );

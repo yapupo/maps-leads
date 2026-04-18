@@ -1,22 +1,23 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        base:     '#080B10',
-        card:     '#0D1117',
-        elevated: '#161B22',
-        border:   '#21262D',
-        'border-bright': '#30363D',
-        accent:   '#F0B429',
-        'accent-dim': '#92620A',
-        green:    '#3FB950',
-        cyan:     '#58A6FF',
-        red:      '#F85149',
-        text:     '#E6EDF3',
-        muted:    '#7D8590',
-        dim:      '#484F58',
+        base:            'var(--color-base)',
+        card:            'var(--color-card)',
+        elevated:        'var(--color-elevated)',
+        border:          'var(--color-border)',
+        'border-bright': 'var(--color-border-bright)',
+        accent:          'var(--color-accent)',
+        'accent-dim':    'var(--color-accent-dim)',
+        green:           'var(--color-green)',
+        cyan:            'var(--color-cyan)',
+        red:             'var(--color-red)',
+        text:            'var(--color-text)',
+        muted:           'var(--color-muted)',
+        dim:             'var(--color-dim)',
       },
       fontFamily: {
         display: ['"Barlow Condensed"', 'sans-serif'],

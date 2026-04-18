@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Card, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
+import { TunnelQR } from '../components/TunnelQR';
 import { formatDate, timeAgo } from '../lib/utils';
 import type { AutomationConfig } from '../lib/api';
 
@@ -124,6 +125,9 @@ export function Automation() {
           Configure raspagem e disparo automáticos em horário agendado.
         </p>
       </div>
+
+      {/* Tunnel QR */}
+      <TunnelQR />
 
       {/* Last run status card */}
       {config && (config.lastRunAt || config.lastRunStatus) && (

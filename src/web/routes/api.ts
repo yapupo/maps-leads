@@ -4,6 +4,7 @@ import { ScrapeHistoryRepository } from '../../infra/storage/ScrapeHistoryReposi
 import { AutomationRepository } from '../../infra/storage/AutomationRepository';
 import { state, repository, runScrapeJob, runSendJob, runAutomationJob } from '../jobRunner';
 import { Channel } from '../../application/SendMessagesUseCase';
+import { getTunnelUrl } from '../tunnel';
 import fs from 'fs';
 
 let bus: EventBus;
@@ -15,6 +16,9 @@ export const apiRouter = Router();
 
 // ─── Status ──────────────────────────────────────────────────────────────────
 apiRouter.get('/status', (_req, res) => res.json({ status: state.job }));
+
+// ─── Tunnel URL ───────────────────────────────────────────────────────────────
+apiRouter.get('/tunnel-url', (_req, res) => res.json({ url: getTunnelUrl() }));
 
 // ─── Contacts ────────────────────────────────────────────────────────────────
 apiRouter.get('/contacts', async (_req, res) => {

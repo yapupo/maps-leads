@@ -2,17 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Tema Escuro (padrão) ───────────────────────────────────── */
+:root {
+  --color-base:         #080B10;
+  --color-card:         #0D1117;
+  --color-elevated:     #161B22;
+  --color-border:       #21262D;
+  --color-border-bright:#30363D;
+  --color-accent:       #F0B429;
+  --color-accent-dim:   #92620A;
+  --color-green:        #3FB950;
+  --color-cyan:         #58A6FF;
+  --color-red:          #F85149;
+  --color-text:         #E6EDF3;
+  --color-muted:        #7D8590;
+  --color-dim:          #484F58;
+}
+
+/* ── Tema Claro ─────────────────────────────────────────────── */
+.light {
+  --color-base:         #F6F8FA;
+  --color-card:         #FFFFFF;
+  --color-elevated:     #EAEEF2;
+  --color-border:       #D0D7DE;
+  --color-border-bright:#BCC4CC;
+  --color-accent:       #BF8700;
+  --color-accent-dim:   #7D5700;
+  --color-green:        #1A7F37;
+  --color-cyan:         #0969DA;
+  --color-red:          #CF222E;
+  --color-text:         #1F2328;
+  --color-muted:        #636C76;
+  --color-dim:          #8C959F;
+}
+
 /* ── Fontes e Reset ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
   height: 100%;
-  background-color: #080B10;
-  color: #E6EDF3;
+  background-color: var(--color-base);
+  color: var(--color-text);
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 /* ── Scrollbar Customizada ──────────────────────────────────── */

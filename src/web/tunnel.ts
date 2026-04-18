@@ -1,5 +1,11 @@
 import { Tunnel } from 'cloudflared';
 
+let activeTunnelUrl: string | null = null;
+
+export function getTunnelUrl(): string | null {
+  return activeTunnelUrl;
+}
+
 export async function startTunnel(port: number): Promise<void> {
   console.log('\n  [TUNNEL] Iniciando túnel remoto Cloudflare...');
 
@@ -10,6 +16,8 @@ export async function startTunnel(port: number): Promise<void> {
     t.once('url', (url: string) => { clearTimeout(timeout); resolve(url); });
     t.once('error', (err: Error) => { clearTimeout(timeout); reject(err); });
   });
+
+  activeTunnelUrl = publicUrl;
 
   console.log('\n  ╔════════════════════════════════════════════════════╗');
   console.log('  ║  ACESSO REMOTO ATIVO                               ║');
