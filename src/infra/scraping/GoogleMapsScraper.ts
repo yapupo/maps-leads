@@ -17,12 +17,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { IScraper } from '../../domain/ports/IScraper';
 import { Contact, ScrapeOptions } from '../../domain/entities/Contact';
 import { WebsiteEmailExtractor } from './WebsiteEmailExtractor';
+import { MapsXhrParser } from './MapsXhrParser';
 
 const HEADLESS = process.env.SCRAPER_HEADLESS === 'true';
 
-// Número de abas abertas simultaneamente na fase de extração de detalhes.
-// 6 é o ponto de equilíbrio entre velocidade e estabilidade no Firefox headless.
-const CONCURRENCY = 6;
+// 3 abas simultâneas é o ponto de equilíbrio entre velocidade e rate-limiting.
+// 6 abas do mesmo IP dispara detecção de bot no Google Maps.
+const CONCURRENCY = 3;
 
 // Pool de user-agents realistas para rotacionar entre requisições
 const USER_AGENTS = [
@@ -44,8 +45,8 @@ function randomUA(): string {
 }
 
 export class GoogleMapsScraper implements IScraper {
-  // Extrator de e-mail agora usa axios+cheerio — sem Playwright aqui
   private emailExtractor = new WebsiteEmailExtractor();
+  private xhrParser = new MapsXhrParser();
 
   async scrape(options: ScrapeOptions): Promise<Contact[]> {
     const browser = await firefox.launch({ headless: HEADLESS });
@@ -152,8 +153,9 @@ export class GoogleMapsScraper implements IScraper {
           }
         }, scrollAmount);
 
-        // Jitter humano entre scrolls: 900ms a 1800ms
-        await jitter(900, 1800);
+        // Jitter humano entre scrolls: 1200ms a 2500ms
+        // Valores abaixo de 1s disparam detecção de bot no Maps.
+        await jitter(1200, 2500);
       }
 
       return [...collected].slice(0, options.maxResults);
@@ -203,6 +205,12 @@ export class GoogleMapsScraper implements IScraper {
         })
       );
 
+      // Pausa entre chunks para não disparar rate-limit do Google.
+      // Não pausa após o último chunk.
+      if (i + CONCURRENCY < urls.length) {
+        await jitter(1000, 3000);
+      }
+
       // Deduplica os resultados do próprio chunk antes de adicionar ao seen global
       const chunkKeys = new Set<string>();
       for (const contact of results) {
@@ -240,8 +248,9 @@ export class GoogleMapsScraper implements IScraper {
     // Buffer extra para conteúdo dinâmico (telefone carrega ~200-600ms depois do h1)
     await jitter(350, 650);
 
-    // Nome do negócio: estratégia aria-label + role antes das classes ofuscadas
-    const businessName = await this.extractBusinessName(page);
+    // Nome do negócio: URL slug (XHR, estável) → h1 role heading → fallback DOM
+    const nameFromUrl = this.xhrParser.extractNameFromUrl(page.url());
+    const businessName = nameFromUrl ?? await this.extractBusinessName(page);
     if (!businessName) return null;
 
     // ── Extração com retry para telefone ──────────────────────────
@@ -299,14 +308,20 @@ export class GoogleMapsScraper implements IScraper {
   // Interceptação de recursos — bloqueia o que não agrega dados
   // ─────────────────────────────────────────────────────────────────
   /**
-   * Aborta imagens, CSS, fontes e mídia.
-   * Mantém: document, script, xhr, fetch — necessários para renderizar o Maps.
-   * Resultado: páginas carregam ~60-70% mais rápido sem conteúdo visual.
+   * Aborta recursos puramente visuais que não afetam a renderização de dados.
+   *
+   * CRÍTICO: 'stylesheet' foi REMOVIDO da lista de bloqueio.
+   * O Google Maps usa CSS para controlar a visibilidade de campos via classes
+   * dinâmicas. Bloquear stylesheets faz telefone, endereço e categoria não
+   * renderizarem, resultando em extrações em branco que disparam retries inúteis.
+   *
+   * Bloqueamos: imagens, fontes, mídia — conteúdo puramente visual.
+   * Mantemos: document, script, xhr, fetch, stylesheet.
    */
   private async blockHeavyResources(page: Page): Promise<void> {
     await page.route('**/*', (route) => {
       const type = route.request().resourceType();
-      const blockedTypes = ['image', 'stylesheet', 'font', 'media', 'texttrack', 'eventsource'];
+      const blockedTypes = ['image', 'font', 'media', 'texttrack', 'eventsource'];
       if (blockedTypes.includes(type)) {
         route.abort();
       } else {
@@ -411,18 +426,29 @@ export class GoogleMapsScraper implements IScraper {
     ]);
   }
 
-  /** Categoria — button com role="button" que contém o tipo de negócio */
+  /**
+   * Categoria — usa ARIA e role para evitar classes ofuscadas.
+   * Classes como 'DkEaL' e 'mgr77e' mudam a cada deploy do Google.
+   * O botão de categoria fica logo abaixo do h1, antes do bloco de endereço,
+   * e tem texto curto sem números (ex: "Pizzaria", "Academia").
+   */
   private async extractCategory(page: Page): Promise<string | null> {
-    // Estratégia 1: getByRole button próximo à categoria (mais estável)
+    const actionLabels = ['Direções', 'Directions', 'Ligar', 'Call', 'Salvar', 'Save', 'Compartilhar', 'Share', 'Website', 'Rota'];
     try {
-      // O botão de categoria fica abaixo do nome do negócio, antes do endereço
-      const btn = page.locator('button.DkEaL, span.mgr77e button').first();
-      if (await btn.isVisible({ timeout: 800 })) {
-        const t = await btn.innerText({ timeout: 800 });
-        if (t?.trim()) return t.trim();
+      const buttons = page.locator('[role="main"] button');
+      const count = await buttons.count().catch(() => 0);
+      for (let i = 0; i < Math.min(count, 8); i++) {
+        try {
+          const btn = buttons.nth(i);
+          const label = await btn.getAttribute('aria-label').catch(() => null);
+          const text = (await btn.innerText({ timeout: 400 }).catch(() => '')).trim();
+          if (!text || text.length > 60) continue;
+          if (actionLabels.some((a) => label?.includes(a) || text.includes(a))) continue;
+          if (/^\d/.test(text)) continue; // rating começa com número
+          return text;
+        } catch {}
       }
     } catch {}
-
     return null;
   }
 
