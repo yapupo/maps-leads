@@ -7,7 +7,7 @@
     "start": "ts-node main.ts",
     "build": "cd client && npm run build",
     "build:server": "tsc",
-    "postinstall": "npx playwright install chromium",
+    "postinstall": "npx playwright install chromium && npx puppeteer browsers install chrome",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
