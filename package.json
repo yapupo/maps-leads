@@ -6,7 +6,7 @@
   "scripts": {
     "start": "ts-node main.ts",
     "build": "tsc",
-    "postinstall": "npx playwright install firefox",
+    "postinstall": "npx playwright install chromium",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

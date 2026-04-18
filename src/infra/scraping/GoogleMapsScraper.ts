@@ -12,7 +12,7 @@
  *  6. WebsiteEmailExtractor migrado para axios+cheerio (sem Playwright para email)
  */
 
-import { firefox, BrowserContext, Page } from 'playwright';
+import { chromium, BrowserContext, Page } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
 import { IScraper } from '../../domain/ports/IScraper';
 import { Contact, ScrapeOptions } from '../../domain/entities/Contact';
@@ -49,7 +49,7 @@ export class GoogleMapsScraper implements IScraper {
   private xhrParser = new MapsXhrParser();
 
   async scrape(options: ScrapeOptions): Promise<Contact[]> {
-    const browser = await firefox.launch({ headless: HEADLESS });
+    const browser = await chromium.launch({ headless: HEADLESS });
 
     // Contexto com user-agent rotativo e locale pt-BR
     const context = await browser.newContext({
