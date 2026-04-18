@@ -72,6 +72,11 @@ export function createServer(port = 3000): Promise<void> {
     res.on('close', () => clearInterval(ping));
   });
 
+  // Catch-all: serve index.html para o React Router lidar com as rotas do SPA
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
+
   // Start cron if already configured
   restartCron(bus);
 
