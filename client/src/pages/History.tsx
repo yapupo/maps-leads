@@ -42,10 +42,10 @@ function SessionRow({
         <td className="py-3 pr-4">
           <span className="text-sm text-text font-medium">{session.query}</span>
         </td>
-        <td className="py-3 pr-4">
+        <td className="py-3 pr-4 hidden sm:table-cell">
           <span className="text-xs text-muted font-mono">{session.location ?? '—'}</span>
         </td>
-        <td className="py-3 pr-4">
+        <td className="py-3 pr-4 hidden md:table-cell">
           <span className="text-xs text-muted font-mono whitespace-nowrap">
             {formatDate(session.startedAt)}
           </span>
@@ -169,18 +169,18 @@ export function History() {
             <p className="text-xs text-dim">Execute uma raspagem para ver o histórico aqui.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto -mx-4 px-4">
-            <table className="w-full text-xs">
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <table className="w-full text-xs min-w-[480px]">
               <thead>
                 <tr className="text-left border-b border-border">
                   <th className="pb-2 pr-3 w-6" />
                   <th className="pb-2 pr-4 font-mono text-muted uppercase tracking-wider font-normal">
                     Query
                   </th>
-                  <th className="pb-2 pr-4 font-mono text-muted uppercase tracking-wider font-normal">
+                  <th className="pb-2 pr-4 font-mono text-muted uppercase tracking-wider font-normal hidden sm:table-cell">
                     Localização
                   </th>
-                  <th className="pb-2 pr-4 font-mono text-muted uppercase tracking-wider font-normal">
+                  <th className="pb-2 pr-4 font-mono text-muted uppercase tracking-wider font-normal hidden md:table-cell">
                     Data
                   </th>
                   <th className="pb-2 pr-4 font-mono text-muted uppercase tracking-wider font-normal">
