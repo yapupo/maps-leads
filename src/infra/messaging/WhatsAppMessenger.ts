@@ -1,5 +1,7 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
 import { IMessenger, MessengerInitOptions, SendResult } from '../../domain/ports/IMessenger';
 import { Contact } from '../../domain/entities/Contact';
 
@@ -48,6 +50,15 @@ export class WhatsAppMessenger implements IMessenger {
   }
 
   async initialize(options?: MessengerInitOptions): Promise<void> {
+    // Remove stale Chromium lock left by a previous crash
+    const lockFile = path.join(
+      process.cwd(),
+      '.wwebjs_auth',
+      'session-maps-leads',
+      'SingletonLock',
+    );
+    try { fs.rmSync(lockFile); } catch { /* not present */ }
+
     return new Promise((resolve, reject) => {
       let settled = false;
       const settle = (fn: () => void) => {
