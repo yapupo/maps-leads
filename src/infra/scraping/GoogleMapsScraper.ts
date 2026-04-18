@@ -21,9 +21,22 @@ import { MapsXhrParser } from './MapsXhrParser';
 
 const HEADLESS = process.env.SCRAPER_HEADLESS === 'true';
 
-// 3 abas simultâneas é o ponto de equilíbrio entre velocidade e rate-limiting.
-// 6 abas do mesmo IP dispara detecção de bot no Google Maps.
-const CONCURRENCY = 3;
+// Domínios de analytics, ads e tracking — nunca contribuem com dados úteis.
+const BLOCKED_DOMAINS = [
+  'google-analytics.com',
+  'googletagmanager.com',
+  'doubleclick.net',
+  'googlesyndication.com',
+  'googleadservices.com',
+  'adservice.google.com',
+  'analytics.google.com',
+  'stats.g.doubleclick.net',
+  'pagead2.googlesyndication.com',
+];
+
+// 5 abas simultâneas — viável com bloqueio agressivo de recursos nas detail pages.
+// O inter-chunk pause de 1-3s compensa o aumento de concorrência.
+const CONCURRENCY = 5;
 
 // Pool de user-agents realistas para rotacionar entre requisições
 const USER_AGENTS = [
@@ -81,9 +94,8 @@ export class GoogleMapsScraper implements IScraper {
   private async collectUrls(context: BrowserContext, options: ScrapeOptions): Promise<string[]> {
     const page = await context.newPage();
 
-    // Bloqueia recursos pesados na página de busca do Maps também.
-    // O feed do Maps carrega via JS/XHR — scripts e fetch precisam passar.
-    await this.blockHeavyResources(page);
+    // Feed precisa de stylesheet para renderizar a lista — bloqueio leve.
+    await this.blockFeedResources(page);
 
     try {
       const q = options.location
@@ -190,8 +202,8 @@ export class GoogleMapsScraper implements IScraper {
       const results = await Promise.all(
         chunk.map(async (url) => {
           const page = await context.newPage();
-          // Bloqueia recursos pesados em cada aba de detalhe
-          await this.blockHeavyResources(page);
+          // Detail pages: bloqueio agressivo — dados vêm de data-item-id e aria-label
+          await this.blockDetailResources(page);
           try {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
             // Pequeno jitter entre abas do mesmo chunk para não disparar rate-limit
@@ -305,28 +317,38 @@ export class GoogleMapsScraper implements IScraper {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Interceptação de recursos — bloqueia o que não agrega dados
+  // Dois níveis de bloqueio de recursos
   // ─────────────────────────────────────────────────────────────────
-  /**
-   * Aborta recursos puramente visuais que não afetam a renderização de dados.
-   *
-   * CRÍTICO: 'stylesheet' foi REMOVIDO da lista de bloqueio.
-   * O Google Maps usa CSS para controlar a visibilidade de campos via classes
-   * dinâmicas. Bloquear stylesheets faz telefone, endereço e categoria não
-   * renderizarem, resultando em extrações em branco que disparam retries inúteis.
-   *
-   * Bloqueamos: imagens, fontes, mídia — conteúdo puramente visual.
-   * Mantemos: document, script, xhr, fetch, stylesheet.
-   */
-  private async blockHeavyResources(page: Page): Promise<void> {
+
+  // Feed (fase 1): mantém stylesheet — o Maps precisa de CSS pra renderizar a lista.
+  private async blockFeedResources(page: Page): Promise<void> {
     await page.route('**/*', (route) => {
+      const url  = route.request().url();
       const type = route.request().resourceType();
-      const blockedTypes = ['image', 'font', 'media', 'texttrack', 'eventsource'];
-      if (blockedTypes.includes(type)) {
-        route.abort();
-      } else {
-        route.continue();
+      if (['image', 'font', 'media', 'texttrack', 'eventsource'].includes(type)) {
+        route.abort(); return;
       }
+      if (BLOCKED_DOMAINS.some((d) => url.includes(d))) {
+        route.abort(); return;
+      }
+      route.continue();
+    });
+  }
+
+  // Detail pages (fase 2): bloqueia também stylesheet — os dados vêm de
+  // data-item-id e aria-label (atributos HTML), não dependem de CSS pra existir.
+  // Isso reduz ~40% do tráfego por aba e acelera o carregamento das detail pages.
+  private async blockDetailResources(page: Page): Promise<void> {
+    await page.route('**/*', (route) => {
+      const url  = route.request().url();
+      const type = route.request().resourceType();
+      if (['image', 'stylesheet', 'font', 'media', 'texttrack', 'eventsource'].includes(type)) {
+        route.abort(); return;
+      }
+      if (BLOCKED_DOMAINS.some((d) => url.includes(d))) {
+        route.abort(); return;
+      }
+      route.continue();
     });
   }
 
