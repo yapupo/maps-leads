@@ -4,37 +4,51 @@ import { IMessenger, MessengerInitOptions, SendResult } from '../../domain/ports
 import { Contact } from '../../domain/entities/Contact';
 
 const COUNTRY_CODE = process.env.DEFAULT_COUNTRY_CODE ?? '55';
-
-// Timeout máximo de inicialização: 3 minutos (scan de QR incluso)
 const INIT_TIMEOUT_MS = 3 * 60 * 1000;
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+function isContextError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes('Execution context was destroyed') ||
+    msg.includes('Protocol error') ||
+    msg.includes('Target closed') ||
+    msg.includes('Session closed')
+  );
+}
 
 export class WhatsAppMessenger implements IMessenger {
   private client: Client;
+  private ready = false;
 
   constructor() {
     this.client = new Client({
       authStrategy: new LocalAuth({ clientId: 'maps-leads' }),
       puppeteer: {
         headless: true,
+        // --single-process e --no-zygote causam ProtocolError no Chromium — removidos.
+        // --disable-dev-shm-usage evita crash por memória compartilhada insuficiente.
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
-          '--no-zygote',
-          '--single-process',
+          '--disable-features=IsolateOrigins,site-per-process',
         ],
-        // Aumenta timeout do protocolo — evita "Execution context was destroyed"
-        // quando o WhatsApp Web recarrega a página entre mensagens
-        protocolTimeout: 60_000,
+        protocolTimeout: 90_000,
       },
     });
+
+    this.client.on('ready', () => { this.ready = true; });
+    this.client.on('disconnected', () => { this.ready = false; });
   }
 
   async initialize(options?: MessengerInitOptions): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Bug fix: garantia de que resolve/reject só é chamado uma vez
       let settled = false;
       const settle = (fn: () => void) => {
         if (settled) return;
@@ -42,7 +56,6 @@ export class WhatsAppMessenger implements IMessenger {
         fn();
       };
 
-      // Timeout: se ready nunca disparar, rejeita em vez de pendurar para sempre
       const timer = setTimeout(() => {
         settle(() => reject(new Error('Timeout na inicialização do WhatsApp (3 min)')));
       }, INIT_TIMEOUT_MS);
@@ -52,12 +65,6 @@ export class WhatsAppMessenger implements IMessenger {
           const dataUrl = await QRCode.toDataURL(qr, { width: 280 });
           options.onQR(dataUrl);
         }
-      });
-
-      // Bug fix: 'authenticated' NÃO chama onReady — só sinaliza sessão restaurada.
-      // onReady só dispara UMA VEZ em 'ready', evitando toast duplicado.
-      this.client.on('authenticated', () => {
-        // sessão restaurada — aguarda 'ready' para confirmar cliente operacional
       });
 
       this.client.on('ready', () => {
@@ -84,12 +91,21 @@ export class WhatsAppMessenger implements IMessenger {
     if (!contact.phone) {
       return { contactId: contact.id, success: false, error: 'Sem telefone' };
     }
-    return this.sendWithRetry(contact, message, 2);
+
+    // Aguarda até 10s se o cliente não estiver pronto (reconectando após reload)
+    if (!this.ready) {
+      for (let i = 0; i < 10; i++) {
+        await sleep(1000);
+        if (this.ready) break;
+      }
+      if (!this.ready) {
+        return { contactId: contact.id, success: false, error: 'WhatsApp não está pronto' };
+      }
+    }
+
+    return this.sendWithRetry(contact, message, 3);
   }
 
-  // O WhatsApp Web ocasionalmente recarrega a página internamente, destruindo o
-  // execution context do Puppeteer. Detectamos esse erro e aguardamos 3s antes
-  // de tentar novamente — tempo suficiente para a página estabilizar.
   private async sendWithRetry(contact: Contact, message: string, attempts: number): Promise<SendResult> {
     try {
       const digits = contact.phone!.replace(/\D/g, '').replace(/^0+/, '');
@@ -103,17 +119,13 @@ export class WhatsAppMessenger implements IMessenger {
       await this.client.sendMessage(numberId._serialized, message);
       return { contactId: contact.id, success: true };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const isContextDestroyed = msg.includes('Execution context was destroyed') ||
-                                 msg.includes('Protocol error') ||
-                                 msg.includes('Target closed');
-
-      if (isContextDestroyed && attempts > 1) {
-        console.warn(`[WHATSAPP] Contexto destruído para ${contact.businessName}, aguardando 3s e tentando novamente...`);
-        await new Promise((r) => setTimeout(r, 3000));
+      if (isContextError(err) && attempts > 1) {
+        const wait = (4 - attempts) * 3000; // 3s, 6s em retries progressivos
+        console.warn(`[WHATSAPP] Context error para "${contact.businessName}", retry em ${wait / 1000}s (${attempts - 1} tentativa(s) restante(s))`);
+        await sleep(wait);
         return this.sendWithRetry(contact, message, attempts - 1);
       }
-
+      const msg = err instanceof Error ? err.message : String(err);
       return { contactId: contact.id, success: false, error: msg };
     }
   }
