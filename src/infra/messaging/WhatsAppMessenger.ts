@@ -14,7 +14,21 @@ export class WhatsAppMessenger implements IMessenger {
   constructor() {
     this.client = new Client({
       authStrategy: new LocalAuth({ clientId: 'maps-leads' }),
-      puppeteer: { headless: true, args: ['--no-sandbox'] },
+      puppeteer: {
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+        ],
+        // Aumenta timeout do protocolo — evita "Execution context was destroyed"
+        // quando o WhatsApp Web recarrega a página entre mensagens
+        protocolTimeout: 60_000,
+      },
     });
   }
 
@@ -70,30 +84,37 @@ export class WhatsAppMessenger implements IMessenger {
     if (!contact.phone) {
       return { contactId: contact.id, success: false, error: 'Sem telefone' };
     }
+    return this.sendWithRetry(contact, message, 2);
+  }
 
+  // O WhatsApp Web ocasionalmente recarrega a página internamente, destruindo o
+  // execution context do Puppeteer. Detectamos esse erro e aguardamos 3s antes
+  // de tentar novamente — tempo suficiente para a página estabilizar.
+  private async sendWithRetry(contact: Contact, message: string, attempts: number): Promise<SendResult> {
     try {
-      const digits = contact.phone.replace(/\D/g, '').replace(/^0+/, '');
+      const digits = contact.phone!.replace(/\D/g, '').replace(/^0+/, '');
       const normalized = digits.startsWith(COUNTRY_CODE) ? digits : COUNTRY_CODE + digits;
 
-      // getNumberId resolve o LID correto e valida se o número existe no WhatsApp
       const numberId = await this.client.getNumberId(normalized);
-
       if (!numberId) {
-        return {
-          contactId: contact.id,
-          success: false,
-          error: 'Número não encontrado no WhatsApp',
-        };
+        return { contactId: contact.id, success: false, error: 'Número não encontrado no WhatsApp' };
       }
 
       await this.client.sendMessage(numberId._serialized, message);
       return { contactId: contact.id, success: true };
     } catch (err) {
-      return {
-        contactId: contact.id,
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
+      const msg = err instanceof Error ? err.message : String(err);
+      const isContextDestroyed = msg.includes('Execution context was destroyed') ||
+                                 msg.includes('Protocol error') ||
+                                 msg.includes('Target closed');
+
+      if (isContextDestroyed && attempts > 1) {
+        console.warn(`[WHATSAPP] Contexto destruído para ${contact.businessName}, aguardando 3s e tentando novamente...`);
+        await new Promise((r) => setTimeout(r, 3000));
+        return this.sendWithRetry(contact, message, attempts - 1);
+      }
+
+      return { contactId: contact.id, success: false, error: msg };
     }
   }
 
