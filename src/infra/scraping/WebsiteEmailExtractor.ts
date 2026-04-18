@@ -21,7 +21,16 @@ const BLACKLIST = [
 ];
 
 // Rotas de contato comuns que visitamos se a home não tiver email
-const CONTACT_PATHS = ['/contato', '/contact', '/fale-conosco', '/sobre', '/about'];
+const CONTACT_PATHS = [
+  '/contato',
+  '/contact',
+  '/fale-conosco',
+  '/sobre',
+  '/about',
+  '/quem-somos',
+  '/atendimento',
+  '/nossa-empresa',
+];
 
 // Configuração padrão do axios: timeout agressivo + headers de browser real
 const AXIOS_CONFIG: AxiosRequestConfig = {
